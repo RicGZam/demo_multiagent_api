@@ -671,9 +671,7 @@ class ATIC:
         self,
         user_request: str,
         related_tables: List[TableInfo],
-        proposed_query: str,
-        tipo_producto: str = "",
-        alcance_producto: str = ""
+        proposed_query: str
     ) -> str:
         """
         Crea un ticket en Jira para solicitar un nuevo producto de datos
@@ -690,8 +688,7 @@ class ATIC:
             print(f"\n[ATIC] 🎫 Creando ticket en Jira...")
             
             # Preparar descripción detallada
-            description = self._build_description(user_request, related_tables, proposed_query, 
-                                                  tipo_producto, alcance_producto)
+            description = self._build_description(user_request, related_tables, proposed_query)
             
             # Configurar campos del issue
             issue_dict = {
@@ -722,9 +719,7 @@ class ATIC:
         self,
         user_request: str,
         related_tables: List[TableInfo],
-        proposed_query: str,
-        tipo_producto: str = "",
-        alcance_producto: str = ""
+        proposed_query: str
     ) -> str:
         """
         Construye la descripción detallada del ticket
@@ -741,11 +736,6 @@ class ATIC:
         description = f"""h2. Solicitud del Usuario
 
 {user_request}
-
-h2. Información del Producto
-
-* *Tipo de Producto:* {tipo_producto if tipo_producto else "No especificado"}
-* *Alcance:* {alcance_producto if alcance_producto else "No especificado"}
 
 h2. Tablas Relacionadas Encontradas
 
@@ -871,24 +861,13 @@ class AORQ:
                     confirmation = "sí"
                 
                 if confirmation in ['sí', 'si', 's', 'yes', 'y']:
-                    # PASO 3: Recopilar información adicional
-                    if interactive:
-                        print("\n[AORQ] 📋 Información adicional para el ticket:")
-                        tipo_producto = input("¿El producto es para BI, AI o para otros fines? > ").strip()
-                        alcance_producto = input("¿El producto es Departamental, Departamental Compartido, Empresarial, Empresarial Crítico u otros? > ").strip()
-                    else:
-                        tipo_producto = ""
-                        alcance_producto = ""
-                    
-                    # PASO 4: Crear ticket con ATIC
+                    # PASO 3: Crear ticket con ATIC
                     print("\n[AORQ] 📋 Procediendo a crear el ticket...")
                     
                     ticket_key = self.atic.create_ticket(
                         user_request=user_input,
                         related_tables=search_result.related_tables or [],
-                        proposed_query=search_result.generated_query or "",
-                        tipo_producto=tipo_producto,
-                        alcance_producto=alcance_producto
+                        proposed_query=search_result.generated_query or ""
                     )
                     
                     result['success'] = True
