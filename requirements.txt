@@ -1,0 +1,19 @@
+# Sistema Multi-Agente - Dependencias
+
+# LangChain y OpenAI
+langchain==0.3.12
+langchain-openai==0.2.12
+openai==1.59.3
+
+# Cliente de Jira
+jira>=3.6.0
+
+# Requests para APIs REST
+requests==2.32.3
+
+# Utilidades
+python-dotenv==1.0.1
+
+# Type hints y validación
+pydantic==2.10.4
+typing-extensions==4.12.2
