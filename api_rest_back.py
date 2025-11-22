@@ -16,10 +16,8 @@ Fecha: 2025-11-18
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, ValidationError
-from typing import Optional, List, Dict, Union
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict
 import uvicorn
 from datetime import datetime
 import logging
@@ -54,18 +52,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Handler para errores de validación
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
-    body = await request.body()
-    logger.error(f"❌ Error de validación en {request.url}")
-    logger.error(f"   Detalles: {exc.errors()}")
-    logger.error(f"   Body recibido: {body.decode('utf-8')}")
-    return JSONResponse(
-        status_code=422,
-        content={"detail": exc.errors(), "body": body.decode('utf-8')}
-    )
 
 # Variables globales para agentes
 agob_instance = None
@@ -110,11 +96,9 @@ class SearchResponse(BaseModel):
 class TicketRequest(BaseModel):
     """Request para crear ticket"""
     user_request: str = Field(..., description="Descripción de lo que necesita el usuario")
-    related_tables: Optional[Union[str, List]] = Field(None, description="Nombres de tablas relacionadas (texto, JSON o lista)")
+    related_tables: Optional[List[str]] = Field(None, description="Nombres de tablas relacionadas")
     proposed_query: Optional[str] = Field(None, description="Query SQL propuesta")
     user_id: Optional[str] = Field(None, description="ID del usuario solicitante")
-    tipo_producto: Optional[str] = Field(None, description="Tipo de producto: BI, AI u otros")
-    alcance_producto: Optional[str] = Field(None, description="Alcance: Departamental, Empresarial, etc.")
 
 
 class TicketResponse(BaseModel):
@@ -348,66 +332,25 @@ async def create_ticket(request: TicketRequest):
     """
     try:
         logger.info(f"Solicitud de ticket: '{request.user_request}' de usuario: {request.user_id}")
-        logger.info(f"DEBUG - Tipo Producto: '{request.tipo_producto}'")
-        logger.info(f"DEBUG - Alcance Producto: '{request.alcance_producto}'")
-        logger.info(f"DEBUG - Request completo: {request.dict()}")
         
         aorq, agob, atic = get_agents()
         
-        # Convertir nombres de tablas a objetos TableInfo
+        # Convertir nombres de tablas a objetos TableInfo si es necesario
         related_tables = []
         if request.related_tables:
-            # Si es una lista vacía, ignorar
-            if isinstance(request.related_tables, list) and len(request.related_tables) == 0:
-                pass  # Dejar related_tables como lista vacía
-            # Si es un string JSON, intentar parsearlo
-            elif isinstance(request.related_tables, str):
-                try:
-                    import json
-                    tables_data = json.loads(request.related_tables)
-                    if isinstance(tables_data, list):
-                        # Si es una lista de objetos con info completa
-                        from multi_agent_system import TableInfo as TI
-                        for table in tables_data:
-                            if isinstance(table, dict):
-                                related_tables.append(
-                                    TI(
-                                        name=table.get('name', 'unknown'),
-                                        database=table.get('database', ''),
-                                        description=table.get('description', ''),
-                                        columns=table.get('columns', []),
-                                        fully_qualified_name=table.get('fully_qualified_name', '')
-                                    )
-                                )
-                except:
-                    # Si falla el parse, usar como texto descriptivo
-                    from multi_agent_system import TableInfo as TI
-                    related_tables = [
-                        TI(name=request.related_tables, database="", description="", 
-                           columns=[], fully_qualified_name=request.related_tables)
-                    ]
-            # Si es una lista con elementos
-            elif isinstance(request.related_tables, list):
-                from multi_agent_system import TableInfo as TI
-                for table in request.related_tables:
-                    if isinstance(table, dict):
-                        related_tables.append(
-                            TI(
-                                name=table.get('name', 'unknown'),
-                                database=table.get('database', ''),
-                                description=table.get('description', ''),
-                                columns=table.get('columns', []),
-                                fully_qualified_name=table.get('fully_qualified_name', '')
-                            )
-                        )
+            # Aquí podrías buscar las tablas por nombre si es necesario
+            # Por ahora, crear objetos simples
+            from multi_agent_system import TableInfo as TI
+            related_tables = [
+                TI(name=name, database="", description="", columns=[], fully_qualified_name=name)
+                for name in request.related_tables
+            ]
         
         # Crear ticket
         ticket_key = atic.create_ticket(
             user_request=request.user_request,
             related_tables=related_tables,
-            proposed_query=request.proposed_query or "",
-            tipo_producto=request.tipo_producto or "",
-            alcance_producto=request.alcance_producto or ""
+            proposed_query=request.proposed_query or ""
         )
         
         ticket_url = f"{atic.jira_client.server_url}/browse/{ticket_key}"
